@@ -1,0 +1,14 @@
+CREATE TYPE "EventStatus" AS ENUM ('NEW','CONFIRMED','UPCOMING','COMPLETED','CANCELLED');
+CREATE TYPE "PaymentMethod" AS ENUM ('CASH','TRANSFER','BIT','PAYBOX','CARD','OTHER');
+CREATE TABLE "Client" ("id" TEXT PRIMARY KEY,"name" TEXT NOT NULL,"phone" TEXT NOT NULL,"notes" TEXT NOT NULL DEFAULT '',"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,"updatedAt" TIMESTAMP(3) NOT NULL);
+CREATE UNIQUE INDEX "Client_phone_key" ON "Client"("phone");
+CREATE TABLE "EventType" ("id" TEXT PRIMARY KEY,"name" TEXT NOT NULL,"active" BOOLEAN NOT NULL DEFAULT true);
+CREATE UNIQUE INDEX "EventType_name_key" ON "EventType"("name");
+CREATE TABLE "Event" ("id" TEXT PRIMARY KEY,"clientId" TEXT NOT NULL,"eventTypeId" TEXT NOT NULL,"date" DATE NOT NULL,"time" TEXT NOT NULL DEFAULT '',"location" TEXT NOT NULL DEFAULT '',"price" INTEGER NOT NULL CHECK ("price">=0),"status" "EventStatus" NOT NULL DEFAULT 'NEW',"notes" TEXT NOT NULL DEFAULT '',"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,"updatedAt" TIMESTAMP(3) NOT NULL,"version" INTEGER NOT NULL DEFAULT 1,"requestId" TEXT NOT NULL, CONSTRAINT "Event_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE RESTRICT ON UPDATE CASCADE, CONSTRAINT "Event_eventTypeId_fkey" FOREIGN KEY ("eventTypeId") REFERENCES "EventType"("id") ON DELETE RESTRICT ON UPDATE CASCADE);
+CREATE UNIQUE INDEX "Event_requestId_key" ON "Event"("requestId");
+CREATE INDEX "Event_date_status_idx" ON "Event"("date","status");
+CREATE INDEX "Event_clientId_idx" ON "Event"("clientId");
+CREATE TABLE "Payment" ("id" TEXT PRIMARY KEY,"eventId" TEXT NOT NULL,"amount" INTEGER NOT NULL CHECK ("amount">0),"date" DATE NOT NULL,"method" "PaymentMethod" NOT NULL,"note" TEXT NOT NULL DEFAULT '',"requestId" TEXT NOT NULL,"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,CONSTRAINT "Payment_eventId_fkey" FOREIGN KEY ("eventId") REFERENCES "Event"("id") ON DELETE CASCADE ON UPDATE CASCADE);
+CREATE UNIQUE INDEX "Payment_requestId_key" ON "Payment"("requestId");
+CREATE INDEX "Payment_eventId_date_idx" ON "Payment"("eventId","date");
+INSERT INTO "EventType" (id,name) VALUES ('birthday','יום הולדת'),('wedding','חתונה'),('private','אירוע פרטי'),('business','אירוע עסקי'),('photo','צילומים'),('other','אחר');

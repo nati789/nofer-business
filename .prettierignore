@@ -1,0 +1,9 @@
+node_modules
+.next
+.local-db
+.venv
+src/generated
+package-lock.json
+backups
+test-results
+playwright-report
