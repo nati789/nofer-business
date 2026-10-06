@@ -110,7 +110,10 @@ export function EventCard({ event, compact = false }: { event: BusinessEvent; co
       <div className="event-main">
         <div className="event-heading">
           <h3>{event.client.name}</h3>
-          <span className={'badge ' + event.status.toLowerCase()}>{statuses[event.status]}</span>
+          <PaymentBadge event={event} />
+          {event.status === 'CANCELLED' && (
+            <span className="badge cancelled">{statuses.CANCELLED}</span>
+          )}
         </div>
         <p>
           {event.eventType.name} · {dateLabel(event.date)}
@@ -121,12 +124,16 @@ export function EventCard({ event, compact = false }: { event: BusinessEvent; co
             </>
           )}
         </p>
-        {
+        <small>
+          <MapPin size={13} />
+          {eventLocation(event) || 'לא צוין מיקום'}
+        </small>
+        {event.preparationPlace && (
           <small>
             <MapPin size={13} />
-            {eventLocation(event) || 'לא צוין מיקום'}
+            מקום התארגנות: {event.preparationPlace}
           </small>
-        }
+        )}
       </div>
       <div className="event-money">
         <strong>{money(event.price)}</strong>

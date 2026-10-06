@@ -1,4 +1,12 @@
-export const eventTypeNames = ['חתונה', 'חינה', 'הפרשת חלה', 'ברית', 'צילומים'];
+export const eventTypeNames = [
+  'חתונה חצי יום',
+  'חתונה יום שלם',
+  'חינה',
+  'הפרשת חלה',
+  'ברית',
+  'בר מצווה',
+  'צילומים',
+];
 export const eventLocation = (e: Pick<BusinessEvent, 'city' | 'venue' | 'location'>) =>
   [e.city, e.venue || e.location].filter(Boolean).join(' · ');
 export const manualDate = (iso: string) =>
@@ -62,6 +70,7 @@ export type BusinessEvent = {
   location: string;
   city: string;
   venue: string;
+  preparationPlace: string | null;
   price: number;
   status: Status;
   notes: string;
@@ -138,6 +147,7 @@ export function filterEvents(events: BusinessEvent[], f: Filters, day = today())
       e.eventType.name,
       e.city,
       e.venue,
+      e.preparationPlace,
       e.location,
       e.notes,
     ]
@@ -157,6 +167,17 @@ export function filterEvents(events: BusinessEvent[], f: Filters, day = today())
       (!f.upcoming || (d >= day && e.status !== 'CANCELLED' && e.status !== 'COMPLETED'))
     );
   });
+}
+export function currentMonthEvents(events: BusinessEvent[], day = today()) {
+  const month = day.slice(0, 7);
+  return events
+    .filter((e) => e.date.slice(0, 7) === month)
+    .sort(
+      (a, b) =>
+        a.date.slice(0, 10).localeCompare(b.date.slice(0, 10)) ||
+        a.time.localeCompare(b.time) ||
+        a.id.localeCompare(b.id),
+    );
 }
 export function summarize(events: BusinessEvent[], month?: string) {
   const items = events.filter(

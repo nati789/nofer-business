@@ -1,6 +1,7 @@
 import { db } from './db';
 import { AppError } from './api';
-import { eventSchema, paymentSchema } from './validation';
+import { eventSchema, paymentSchema, completionSchema } from './validation';
+import { correctedPaid } from './payment-plan';
 import { today } from './domain';
 export async function saveEvent(body: unknown, id?: string) {
   const v = eventSchema.parse(body);
@@ -16,8 +17,17 @@ export async function saveEvent(body: unknown, id?: string) {
       if (id && !old) throw new AppError('האירוע לא נמצא', 404);
       if (old && old.version !== v.version)
         throw new AppError('האירוע עודכן במכשיר אחר. יש לרענן לפני שמירה.', 409);
-      if (old && old.payments.reduce((s, p) => s + p.amount, 0) > v.price)
-        throw new AppError('המחיר נמוך מהסכום שכבר שולם');
+      if (!old && v.paymentChanges) throw new AppError('תיקון תשלומים זמין בעריכת אירוע בלבד');
+      if (old?.status === 'CANCELLED' && v.paymentChanges?.some((p) => !p.remove && !p.id))
+        throw new AppError('לא ניתן להוסיף תשלום לאירוע שבוטל');
+      let paid = v.initialPaid;
+      if (old) {
+        try {
+          paid = correctedPaid(old.payments, v.paymentChanges ?? [], v.price);
+        } catch (error) {
+          throw new AppError((error as Error).message);
+        }
+      }
       const type = await tx.eventType.findUnique({ where: { id: v.eventTypeId } });
       if (!type || (!type.active && old?.eventTypeId !== type.id))
         throw new AppError('סוג האירוע אינו זמין');
@@ -58,33 +68,131 @@ export async function saveEvent(body: unknown, id?: string) {
         location: v.location ?? old?.location ?? '',
         city: v.city,
         venue: v.venue ?? v.location ?? old?.venue ?? '',
+        preparationPlace:
+          v.preparationPlace === undefined ? (old?.preparationPlace ?? null) : v.preparationPlace,
         price: v.price,
-        status: v.status,
+        status: v.status ?? old?.status ?? 'NEW',
         notes: v.notes,
       };
-      if (id)
+      if (id) {
+        for (const change of v.paymentChanges ?? []) {
+          if (change.remove) {
+            await tx.payment.delete({ where: { id: change.id } });
+          } else {
+            const payment = {
+              amount: change.amount,
+              date: new Date(change.date + 'T00:00:00Z'),
+              method: change.method,
+              note: change.note,
+            };
+            if (change.id) {
+              const previous = old!.payments.find((p) => p.id === change.id)!;
+              if (
+                previous.amount !== payment.amount ||
+                previous.date.getTime() !== payment.date.getTime() ||
+                previous.method !== payment.method ||
+                previous.note !== payment.note
+              )
+                await tx.payment.update({ where: { id: change.id }, data: payment });
+            } else {
+              await tx.payment.create({
+                data: { ...payment, eventId: id, requestId: change.requestId! },
+              });
+            }
+          }
+        }
+        if (v.status === 'COMPLETED' && old?.status !== 'COMPLETED' && v.price > paid)
+          await tx.payment.create({
+            data: {
+              eventId: id,
+              amount: v.price - paid,
+              date: new Date(today() + 'T00:00:00Z'),
+              method: 'OTHER',
+              note: 'השלמת יתרה בעת סימון כהושלם',
+              requestId: v.requestId,
+            },
+          });
         return tx.event.update({
           where: { id, version: v.version },
           data: { ...data, version: { increment: 1 } },
         });
+      }
       return tx.event.create({
         data: {
           ...data,
           requestId: v.requestId,
-          ...(v.initialPaid
+          ...(v.initialPaid || (v.status === 'COMPLETED' && v.price > paid)
             ? {
                 payments: {
-                  create: {
-                    amount: v.initialPaid,
-                    date: new Date(today() + 'T00:00:00Z'),
-                    method: v.initialMethod,
-                    note: 'תשלום ראשוני',
-                    requestId: v.requestId,
-                  },
+                  create: [
+                    ...(v.initialPaid
+                      ? [
+                          {
+                            amount: v.initialPaid,
+                            date: new Date(today() + 'T00:00:00Z'),
+                            method: v.initialMethod,
+                            note: 'תשלום ראשוני',
+                            requestId: v.requestId,
+                          },
+                        ]
+                      : []),
+                    ...(v.status === 'COMPLETED' && v.price > paid
+                      ? [
+                          {
+                            amount: v.price - paid,
+                            date: new Date(today() + 'T00:00:00Z'),
+                            method: 'OTHER' as const,
+                            note: 'השלמת יתרה בעת סימון כהושלם',
+                            requestId: crypto.randomUUID(),
+                          },
+                        ]
+                      : []),
+                  ],
                 },
               }
             : {}),
         },
+      });
+    },
+    { isolationLevel: 'Serializable' },
+  );
+}
+export async function completeEvent(eventId: string, body: unknown) {
+  const v = completionSchema.parse(body);
+  return db.$transaction(
+    async (tx) => {
+      const event = await tx.event.findUnique({
+        where: { id: eventId },
+        include: { payments: true },
+      });
+      if (!event) throw new AppError('האירוע לא נמצא', 404);
+      const prior = await tx.payment.findUnique({ where: { requestId: v.requestId } });
+      if (prior) {
+        if (prior.eventId !== eventId || prior.note !== 'השלמת יתרה בעת סימון כהושלם')
+          throw new AppError('מזהה הבקשה כבר בשימוש', 409);
+        return event;
+      }
+      const paid = event.payments.reduce((sum, p) => sum + p.amount, 0);
+      if (event.status === 'CANCELLED') throw new AppError('לא ניתן להשלים אירוע שבוטל');
+      if (paid > event.price)
+        throw new AppError('התשלומים גבוהים ממחיר האירוע. יש לתקן אותם בעריכת האירוע');
+      if (event.status === 'COMPLETED' && paid === event.price) return event;
+      if (event.version !== v.version)
+        throw new AppError('האירוע עודכן במכשיר אחר. יש לרענן לפני השלמה.', 409);
+      if (paid < event.price)
+        await tx.payment.create({
+          data: {
+            eventId,
+            amount: event.price - paid,
+            date: new Date(today() + 'T00:00:00Z'),
+            method: 'OTHER',
+            note: 'השלמת יתרה בעת סימון כהושלם',
+            requestId: v.requestId,
+          },
+        });
+      return tx.event.update({
+        where: { id: eventId, version: v.version },
+        data: { status: 'COMPLETED', version: { increment: 1 } },
       });
     },
     { isolationLevel: 'Serializable' },

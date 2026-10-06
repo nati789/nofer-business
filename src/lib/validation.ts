@@ -27,6 +27,29 @@ export const amountSchema = z
   .int('יש להזין סכום מדויק באגורות')
   .min(0, 'הסכום חייב להיות חיובי')
   .max(100_000_000, 'הסכום גבוה מדי');
+const methodSchema = z.enum(['CASH', 'TRANSFER', 'BIT', 'PAYBOX', 'CARD', 'OTHER']);
+export const paymentChangeSchema = z.union([
+  z.object({ id: text(100).min(1), remove: z.literal(true) }),
+  z
+    .object({
+      id: text(100).min(1).optional(),
+      amount: amountSchema.refine(
+        (n) => n > 0,
+        'סכום תשלום חייב להיות גדול מאפס. להסרת תשלום יש לבחור מחיקה',
+      ),
+      date: dateSchema,
+      method: methodSchema,
+      note: text(1000).default(''),
+      requestId: z.string().uuid().optional(),
+      remove: z.literal(false).default(false),
+    })
+    .refine((v) => !!v.id || !!v.requestId, 'חסר מזהה תשלום חדש'),
+]);
+export type PaymentChange = z.infer<typeof paymentChangeSchema>;
+export const completionSchema = z.object({
+  version: z.number().int().positive(),
+  requestId: z.string().uuid(),
+});
 export const eventSchema = z
   .object({
     name: text(100).min(1, 'יש להזין שם לקוח'),
@@ -39,12 +62,17 @@ export const eventSchema = z
     location: text(300).optional(),
     city: text(300).default(''),
     venue: text(300).optional(),
+    preparationPlace: text(300)
+      .nullable()
+      .optional()
+      .transform((v) => (v === '' ? null : v)),
     price: amountSchema,
     initialPaid: amountSchema.default(0),
+    paymentChanges: z.array(paymentChangeSchema).max(1000).optional(),
     initialMethod: z
       .enum(['CASH', 'TRANSFER', 'BIT', 'PAYBOX', 'CARD', 'OTHER'])
       .default('TRANSFER'),
-    status: z.enum(['NEW', 'CONFIRMED', 'UPCOMING', 'COMPLETED', 'CANCELLED']).default('NEW'),
+    status: z.enum(['NEW', 'CONFIRMED', 'UPCOMING', 'COMPLETED', 'CANCELLED']).optional(),
     notes: text(5000).default(''),
     requestId: z.string().uuid(),
     allowDuplicate: z.boolean().default(false),

@@ -2,6 +2,7 @@
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from './app-link';
+import PaymentEditor, { paymentDrafts, paymentChanges } from './payment-editor';
 import { ArrowRight, Check, UserRound, CalendarDays, Wallet } from 'lucide-react';
 import {
   normalizePhone,
@@ -10,7 +11,7 @@ import {
   parseManualDate,
   today,
   methods,
-  statuses,
+  money,
   type BusinessEvent,
   type Snapshot,
 } from '@/lib/domain';
@@ -46,6 +47,12 @@ export default function EventForm({
   const date = parseManualDate(dateText);
   const existing = data.clients.find((c) => !!phone.trim() && c.phone === normalizePhone(phone));
   const edit = !!event && !copy;
+  const legacyType = edit && !eventTypeNames.includes(event.eventType.name);
+  const [price, setPrice] = useState(event ? String(event.price / 100) : '');
+  const [drafts, setDrafts] = useState(() => paymentDrafts(edit ? event : undefined));
+  const paid = drafts
+    .filter((p) => !p.removed)
+    .reduce((sum, p) => sum + Math.round(Number(p.amount || 0) * 100), 0);
   return (
     <>
       <Link className="back" href={edit ? '/events/' + event.id : '/events'}>
@@ -68,6 +75,10 @@ export default function EventForm({
             setError('יש להזין תאריך תקין בפורמט DD/MM/YYYY');
             return;
           }
+          if (edit && paid > Math.round(Number(price) * 100)) {
+            setError('סך התשלומים גבוה ממחיר האירוע. יש לתקן את התשלומים או את המחיר');
+            return;
+          }
           setBusy(true);
           setError('');
           const f = new FormData(e.currentTarget);
@@ -81,14 +92,15 @@ export default function EventForm({
                 phone,
                 date,
                 time: f.get('time'),
-                eventTypeId: f.get('eventTypeId'),
+                eventTypeId: f.get('eventTypeId') || (edit ? event.eventTypeId : ''),
                 city: f.get('city'),
                 venue: f.get('venue'),
+                preparationPlace: f.get('preparationPlace'),
                 ...(copy && event ? { location: event.location } : {}),
                 price: Math.round(Number(f.get('price')) * 100),
                 initialPaid: edit ? 0 : Math.round(Number(f.get('initialPaid') || 0) * 100),
+                ...(edit ? { paymentChanges: paymentChanges(drafts) } : {}),
                 initialMethod: f.get('initialMethod') || 'TRANSFER',
-                status: f.get('status'),
                 notes: f.get('notes'),
                 allowDuplicate: f.get('allowDuplicate') === 'on',
                 requestId: requestId.current,
@@ -109,9 +121,22 @@ export default function EventForm({
             <UserRound size={19} />
             פרטי הלקוח
           </legend>
-          <div className="form-grid">
+          <div className="form-grid client-fields">
             <label>
-              טלפון (לא חובה)
+              שם הלקוח <span className="required">*</span>
+              <input
+                name="name"
+                autoComplete="name"
+                value={name}
+                readOnly={!!existing}
+                onChange={(e) => setName(e.target.value)}
+                required
+                maxLength={100}
+                placeholder="שם מלא"
+              />
+            </label>
+            <label>
+              מספר טלפון (לא חובה)
               <input
                 name="phone"
                 type="tel"
@@ -139,19 +164,6 @@ export default function EventForm({
                     </option>
                   ))}
               </datalist>
-            </label>
-            <label>
-              שם הלקוח <span className="required">*</span>
-              <input
-                name="name"
-                autoComplete="name"
-                value={name}
-                readOnly={!!existing}
-                onChange={(e) => setName(e.target.value)}
-                required
-                maxLength={100}
-                placeholder="שם מלא"
-              />
             </label>
           </div>
           {existing && (
@@ -219,10 +231,10 @@ export default function EventForm({
                 defaultValue={
                   event && eventTypeNames.includes(event.eventType.name) ? event.eventTypeId : ''
                 }
-                required
+                required={!legacyType}
               >
                 <option value="" disabled>
-                  בחירת סוג אירוע
+                  {legacyType ? 'שמירת הסוג הקיים' : 'בחירת סוג אירוע'}
                 </option>
                 {data.types
                   .filter((t) => eventTypeNames.includes(t.name))
@@ -233,16 +245,9 @@ export default function EventForm({
                     </option>
                   ))}
               </select>
-            </label>
-            <label>
-              מצב האירוע
-              <select name="status" defaultValue={edit ? event.status : 'NEW'}>
-                {Object.entries(statuses).map(([k, v]) => (
-                  <option key={k} value={k}>
-                    {v}
-                  </option>
-                ))}
-              </select>
+              {legacyType && (
+                <small>סוג האירוע הקיים: {event.eventType.name}. יישמר אם לא תבחרי סוג חדש.</small>
+              )}
             </label>
             <label>
               עיר
@@ -253,6 +258,14 @@ export default function EventForm({
               <input
                 name="venue"
                 defaultValue={event?.venue || event?.location || ''}
+                maxLength={300}
+              />
+            </label>
+            <label className="full">
+              מקום התארגנות
+              <input
+                name="preparationPlace"
+                defaultValue={event?.preparationPlace || ''}
                 maxLength={300}
               />
             </label>
@@ -273,11 +286,24 @@ export default function EventForm({
                 min="0"
                 max="1000000"
                 step="0.01"
-                defaultValue={event ? event.price / 100 : ''}
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
                 placeholder="0"
                 required
               />
             </label>
+            {edit && (
+              <label>
+                כבר שולם (₪)
+                <input
+                  aria-describedby="paid-edit-help"
+                  value={(paid / 100).toFixed(2)}
+                  readOnly
+                  dir="ltr"
+                />
+                <small id="paid-edit-help">לתיקון הסכום, ערכי את התשלומים למטה.</small>
+              </label>
+            )}
             {!edit && (
               <>
                 <label>
@@ -304,7 +330,21 @@ export default function EventForm({
               </>
             )}
           </div>
-          {edit && <p className="muted">תשלומים נוספים נרשמים בנפרד בעמוד האירוע.</p>}
+          {edit && (
+            <>
+              <p
+                className={paid > Math.round(Number(price) * 100) ? 'error' : 'inline-success'}
+                aria-live="polite"
+              >
+                יתרה לתשלום: {money(Math.round(Number(price || 0) * 100) - paid)}
+              </p>
+              <PaymentEditor
+                drafts={drafts}
+                onChange={setDrafts}
+                allowAdd={event.status !== 'CANCELLED'}
+              />
+            </>
+          )}
         </fieldset>
         <label>
           הערות

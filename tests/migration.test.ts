@@ -45,9 +45,49 @@ test('migration preserves historical locations, types, clients and payments', as
       { id: 'wedding' },
     ]);
     await db.exec(
+      await readFile(
+        'prisma/migrations/202610060002_preparation_place_bar_mitzvah/migration.sql',
+        'utf8',
+      ),
+    );
+    assert.deepEqual(
+      (await db.query('SELECT "preparationPlace",status,price,"eventTypeId" FROM "Event"')).rows,
+      [{ preparationPlace: null, status: 'NEW', price: 200000, eventTypeId: 'birthday' }],
+    );
+    assert.deepEqual((await db.query('SELECT amount FROM "Payment"')).rows, [{ amount: 50000 }]);
+    assert.deepEqual(
+      (await db.query('SELECT name,active FROM "EventType" WHERE name=\'בר מצווה\'')).rows,
+      [{ name: 'בר מצווה', active: true }],
+    );
+    await db.exec(
       `INSERT INTO "Client" (id,name,phone,"updatedAt") VALUES ('blank-one','א',NULL,now()),('blank-two','ב',NULL,now());`,
     );
     assert.equal((await db.query('SELECT id FROM "Client" WHERE phone IS NULL')).rows.length, 2);
+    await db.exec(
+      `INSERT INTO "Event" (id,"clientId","eventTypeId",date,price,"updatedAt","requestId") VALUES ('legacy-wedding','client','wedding','2026-10-21',10000,now(),'legacy-wedding');`,
+    );
+    await db.exec(
+      await readFile('prisma/migrations/202610060003_wedding_types/migration.sql', 'utf8'),
+    );
+    assert.deepEqual(
+      (await db.query('SELECT id,name,active FROM "EventType" WHERE id=\'wedding\'')).rows,
+      [{ id: 'wedding', name: 'חתונה', active: false }],
+    );
+    assert.deepEqual(
+      (await db.query('SELECT "eventTypeId",price FROM "Event" WHERE id=\'legacy-wedding\'')).rows,
+      [{ eventTypeId: 'wedding', price: 10000 }],
+    );
+    assert.deepEqual((await db.query('SELECT amount FROM "Payment"')).rows, [{ amount: 50000 }]);
+    assert.deepEqual(
+      (
+        await db.query<{ name: string }>(
+          'SELECT name FROM "EventType" WHERE active=true ORDER BY name',
+        )
+      ).rows
+        .map((r) => r.name)
+        .sort(),
+      ['חתונה חצי יום', 'חתונה יום שלם', 'חינה', 'הפרשת חלה', 'ברית', 'בר מצווה', 'צילומים'].sort(),
+    );
     await assert.rejects(
       db.exec(
         `INSERT INTO "Event" (id,"clientId","eventTypeId",date,price,"updatedAt","requestId") VALUES ('no-date','client','wedding',NULL,0,now(),'no-date');`,

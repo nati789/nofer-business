@@ -1,7 +1,8 @@
 import 'dotenv/config';
 import { db } from '../src/lib/db';
+import { eventTypeNames } from '../src/lib/domain';
 try {
-  const names = ['חתונה', 'חינה', 'הפרשת חלה', 'ברית', 'צילומים'];
+  const names = eventTypeNames;
   await db.$transaction(async (tx) => {
     await tx.eventType.updateMany({ where: { name: { notIn: names } }, data: { active: false } });
     for (const name of names)

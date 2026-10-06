@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import type { BusinessEvent, Snapshot } from '../../src/lib/domain';
+import { today, shiftMonth, money, type BusinessEvent, type Snapshot } from '../../src/lib/domain';
 import { cleanTestData, closeTestDatabase } from '../cleanup';
 
 test.beforeEach(async () => {
@@ -23,7 +23,7 @@ test('events, client recognition, payments, summaries, exports and deletion', as
   await page.getByLabel('טלפון', { exact: false }).fill(phone);
   await page.getByLabel('שם הלקוח').fill(name);
   await page.getByLabel('תאריך האירוע').fill('18/10/2026');
-  await page.getByLabel('סוג אירוע').selectOption('wedding');
+  await page.getByLabel('סוג אירוע').selectOption('nofer-wedding-half-day');
   await page.getByLabel('מחיר שסוכם').fill('2000');
   await page.getByLabel('כבר שולם').fill('500');
   await page.getByLabel('עיר', { exact: true }).fill('תל אביב');
@@ -60,7 +60,9 @@ test('events, client recognition, payments, summaries, exports and deletion', as
     await page.getByLabel('חיפוש אירועים').fill(name);
     await page.getByRole('button', { name: 'סינון', exact: true }).click();
     await page.getByLabel('חודש', { exact: true }).fill('2026-10');
-    await page.getByRole('combobox', { name: 'סוג אירוע', exact: true }).selectOption('wedding');
+    await page
+      .getByRole('combobox', { name: 'סוג אירוע', exact: true })
+      .selectOption('nofer-wedding-half-day');
     await page
       .getByRole('combobox', { name: 'מצב תשלום', exact: true })
       .selectOption('OUTSTANDING');
@@ -101,7 +103,7 @@ test('API validates duplicate, overpayment, stale edit, idempotency and cancella
     name,
     phone,
     date: '2026-10-20',
-    eventTypeId: 'wedding',
+    eventTypeId: 'nofer-wedding-half-day',
     price: 200000,
     initialPaid: 50000,
     requestId: crypto.randomUUID(),
@@ -222,7 +224,7 @@ test('optional phone, both date inputs, locations, dashboard and persistent them
   await page.getByLabel('סוג אירוע').selectOption({ label: 'חינה' });
   expect(
     await page.locator('select[name="eventTypeId"] option:not([disabled])').allTextContents(),
-  ).toEqual(['חתונה', 'חינה', 'הפרשת חלה', 'ברית', 'צילומים']);
+  ).toEqual(['חתונה חצי יום', 'חתונה יום שלם', 'חינה', 'הפרשת חלה', 'ברית', 'בר מצווה', 'צילומים']);
   await page.getByLabel('עיר', { exact: true }).fill('חיפה');
   await page.getByLabel('שם האולם', { exact: true }).fill('אולם הכרמל');
   await page.getByLabel('תאריך האירוע').fill('');
@@ -266,8 +268,9 @@ test('optional phone, both date inputs, locations, dashboard and persistent them
   const upcoming = page
     .locator('section')
     .filter({ has: page.getByRole('heading', { name: 'בקרוב ביומן' }) });
-  await expect(upcoming).toContainText('חיפה');
-  await expect(upcoming).toContainText('אולם מעודכן');
+  await expect(upcoming.locator('.event-card[href="/events/' + id + '"]')).toHaveCount(
+    event.date.startsWith(today().slice(0, 7)) ? 1 : 0,
+  );
   expect(
     await page.evaluate(() =>
       getComputedStyle(document.documentElement).getPropertyValue('--soft').trim(),
@@ -281,4 +284,197 @@ test('optional phone, both date inputs, locations, dashboard and persistent them
     'true',
   );
   await page.getByRole('button', { name: 'ורוד בהיר', exact: true }).click();
+});
+
+test('event forms hide status, retain internal status, place name on right, and save preparation place', async ({
+  page,
+  request,
+}) => {
+  await page.goto('/events/new');
+  await expect(page.locator('[name="status"]')).toHaveCount(0);
+  await expect(page.getByLabel('מצב האירוע')).toHaveCount(0);
+  const clientName = page.getByLabel('שם הלקוח');
+  const phone = page.getByLabel('מספר טלפון');
+  expect(await phone.evaluate((input: HTMLInputElement) => input.required)).toBe(false);
+  const nameBox = (await clientName.boundingBox())!;
+  const phoneBox = (await phone.boundingBox())!;
+  if (page.viewportSize()!.width > 700) {
+    expect(nameBox.x).toBeGreaterThan(phoneBox.x);
+    expect(Math.abs(nameBox.y - phoneBox.y)).toBeLessThan(2);
+  } else {
+    expect(nameBox.y).toBeLessThan(phoneBox.y);
+  }
+  await clientName.fill('בדיקת מערכת התארגנות ' + Date.now());
+  await page.getByLabel('סוג אירוע').selectOption({ label: 'בר מצווה' });
+  await page.getByLabel('מקום התארגנות').fill('מלון להתארגנות');
+  await page.getByLabel('מחיר שסוכם').fill('1000');
+  await page.getByRole('button', { name: 'שמירת האירוע', exact: true }).click();
+  await expect(page).toHaveURL(/\/events\/c[a-z0-9]+$/);
+  const id = page.url().split('/').pop()!;
+  let snapshot = (await (await request.get('/api/data')).json()) as Snapshot;
+  let event = snapshot.events.find((e) => e.id === id)!;
+  const originalClientId = event.clientId;
+  expect(event.status).toBe('NEW');
+  expect(event.client.phone).toBeNull();
+  expect(event.preparationPlace).toBe('מלון להתארגנות');
+  await expect(page.locator('.detail-grid')).toContainText('מלון להתארגנות');
+  await page.getByRole('button', { name: 'סימון כהושלם' }).click();
+  await expect(page.locator('.badge.completed')).toBeVisible();
+  await page.getByRole('link', { name: 'עריכת האירוע' }).click();
+  await expect(page.locator('[name="status"]')).toHaveCount(0);
+  await expect(page.getByLabel('מקום התארגנות')).toHaveValue('מלון להתארגנות');
+  await page.getByLabel('מקום התארגנות').fill('בית להתארגנות');
+  await page.getByRole('button', { name: 'שמירת שינויים' }).click();
+  await expect(page).toHaveURL('/events/' + id);
+  snapshot = (await (await request.get('/api/data')).json()) as Snapshot;
+  event = snapshot.events.find((e) => e.id === id)!;
+  expect(event.status).toBe('COMPLETED');
+  expect(event.preparationPlace).toBe('בית להתארגנות');
+  expect(event.clientId).toBe(originalClientId);
+  await page.goto('/events');
+  await page.getByLabel('חיפוש אירועים').fill('בית להתארגנות');
+  await expect(page.locator('.event-list .event-card')).toHaveCount(1);
+  await expect(page.locator('.event-list')).toContainText('בר מצווה');
+  await expect(page.locator('.event-list')).toContainText('בית להתארגנות');
+  await page.getByRole('button', { name: 'סינון', exact: true }).click();
+  await page
+    .getByRole('combobox', { name: 'סוג אירוע', exact: true })
+    .selectOption({ label: 'בר מצווה' });
+  await expect(page.locator('.event-list .event-card')).toHaveCount(1);
+  const exported = await request.get('/api/export?query=' + encodeURIComponent('בית להתארגנות'));
+  expect(exported.status()).toBe(200);
+  expect(await exported.text()).toContain('מקום התארגנות');
+  expect(await exported.text()).toContain('בית להתארגנות');
+  await page.goto('/reports');
+  await expect(page.getByText('בר מצווה', { exact: true }).first()).toBeVisible();
+  // Omitted new fields in older API callers must preserve the existing value/status.
+  const edit = {
+    name: event.client.name,
+    phone: null,
+    date: event.date.slice(0, 10),
+    eventTypeId: event.eventTypeId,
+    price: event.price,
+    version: event.version,
+    requestId: crypto.randomUUID(),
+  };
+  expect((await request.put('/api/events/' + id, { data: edit })).status()).toBe(200);
+  event = ((await (await request.get('/api/data')).json()) as Snapshot).events.find(
+    (e) => e.id === id,
+  )!;
+  expect(event.preparationPlace).toBe('בית להתארגנות');
+  expect(event.status).toBe('COMPLETED');
+  expect(
+    (
+      await request.put('/api/events/' + id, {
+        data: { ...edit, version: event.version, preparationPlace: '' },
+      })
+    ).status(),
+  ).toBe(200);
+  event = ((await (await request.get('/api/data')).json()) as Snapshot).events.find(
+    (e) => e.id === id,
+  )!;
+  expect(event.preparationPlace).toBeNull();
+});
+
+test('dashboard displays all current-month events sorted by date/time and no recent section', async ({
+  browser,
+  page,
+  request,
+}) => {
+  const month = today().slice(0, 7);
+  const snapshot = (await (await request.get('/api/data')).json()) as Snapshot;
+  const type = snapshot.types.find((t) => t.name === 'בר מצווה')!;
+  const prefix = 'בדיקת מערכת חודש ' + Date.now();
+  const fixtures = [
+    { day: '28', time: '18:00', suffix: 'אחרון', status: 'NEW' },
+    { day: '02', time: '10:00', suffix: 'הושלם', status: 'COMPLETED' },
+    { day: '12', time: '16:00', suffix: 'אחר הצהריים', status: 'NEW' },
+    { day: '12', time: '08:00', suffix: 'בוקר', status: 'NEW' },
+    { day: '01', time: '', suffix: 'ראשון', status: 'NEW' },
+    { day: '20', time: '12:00', suffix: 'בוטל', status: 'CANCELLED' },
+  ];
+  for (const fixture of fixtures) {
+    const response = await request.post('/api/events', {
+      data: {
+        name: prefix + ' ' + fixture.suffix,
+        date: month + '-' + fixture.day,
+        time: fixture.time,
+        status: fixture.status,
+        eventTypeId: type.id,
+        price: 10000,
+        city: 'חיפה',
+        venue: 'אולם החודש',
+        preparationPlace: 'מלון החודש',
+        requestId: crypto.randomUUID(),
+      },
+    });
+    expect(response.status()).toBe(201);
+  }
+  for (const offset of [-1, 1]) {
+    expect(
+      (
+        await request.post('/api/events', {
+          data: {
+            name: prefix + ' מחוץ לחודש ' + offset,
+            date: shiftMonth(month, offset) + '-01',
+            eventTypeId: type.id,
+            price: 10000,
+            requestId: crypto.randomUUID(),
+          },
+        })
+      ).status(),
+    ).toBe(201);
+  }
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'עדכונים אחרונים' })).toHaveCount(0);
+  const section = page
+    .locator('section')
+    .filter({ has: page.getByRole('heading', { name: 'בקרוב ביומן' }) });
+  const current = ((await (await request.get('/api/data')).json()) as Snapshot).events.filter((e) =>
+    e.date.startsWith(month),
+  );
+  await expect(section.locator('.event-card')).toHaveCount(current.length);
+  await expect(page.locator('.stat').filter({ hasText: 'הכנסה מהאירועים' })).toContainText(
+    money(current.filter((e) => e.status !== 'CANCELLED').reduce((sum, e) => sum + e.price, 0)),
+  );
+  expect(
+    await section
+      .locator('.event-card')
+      .filter({ hasText: prefix })
+      .locator('h3')
+      .allTextContents(),
+  ).toEqual(
+    ['ראשון', 'הושלם', 'בוקר', 'אחר הצהריים', 'בוטל', 'אחרון'].map(
+      (suffix) => prefix + ' ' + suffix,
+    ),
+  );
+  await expect(section).toContainText('מלון החודש');
+  await expect(section).toContainText('אולם החודש');
+  await expect(section).toContainText('חיפה');
+  await expect(section).not.toContainText('מחוץ לחודש');
+  const title = (await page.getByRole('heading', { name: 'מה קורה בעסק שלך' }).boundingBox())!;
+  expect((await section.boundingBox())!.y).toBeGreaterThan(title.y);
+  await page.getByLabel('בחירת חודש').fill(shiftMonth(month, 1));
+  await expect(section.locator('.event-card')).toHaveCount(current.length);
+  // WebKit service workers bypass Playwright routing. Isolate only the mocked
+  // empty-state check; the real-data checks above keep service workers enabled.
+  const emptyContext = await browser.newContext({
+    storageState: await page.context().storageState(),
+    viewport: page.viewportSize()!,
+    serviceWorkers: 'block',
+  });
+  try {
+    const emptyPage = await emptyContext.newPage();
+    await emptyPage.route('**/api/data', (route) =>
+      route.fulfill({ json: { ...snapshot, events: [] } }),
+    );
+    await emptyPage.goto('/');
+    const emptySection = emptyPage
+      .locator('section')
+      .filter({ has: emptyPage.getByRole('heading', { name: 'בקרוב ביומן' }) });
+    await expect(emptySection.getByRole('heading', { name: 'אין אירועים החודש' })).toBeVisible();
+    await expect(emptySection.locator('.event-card')).toHaveCount(0);
+  } finally {
+    await emptyContext.close();
+  }
 });

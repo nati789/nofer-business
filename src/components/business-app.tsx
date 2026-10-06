@@ -32,6 +32,7 @@ import {
   totals,
   summarize,
   filterEvents,
+  currentMonthEvents,
   shiftMonth,
   statuses,
   paymentLabels,
@@ -276,6 +277,7 @@ function Dashboard({ data, month, setMonth }: MonthProps) {
   const s = summarize(data.events, month);
   const previous = summarize(data.events, shiftMonth(month, -1));
   const upcoming = filterEvents(data.events, { upcoming: true });
+  const calendarMonthEvents = currentMonthEvents(data.events);
   const closest = upcoming[0];
   const difference = previous.revenue
     ? Math.round(((s.revenue - previous.revenue) / previous.revenue) * 100)
@@ -283,9 +285,6 @@ function Dashboard({ data, month, setMonth }: MonthProps) {
   const overdue = data.events.filter(
     (e) => e.status !== 'CANCELLED' && e.date.slice(0, 10) < today() && totals(e).remaining > 0,
   );
-  const recent = [...data.events]
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-    .slice(0, 4);
   return (
     <>
       <div className="welcome-line">
@@ -307,10 +306,10 @@ function Dashboard({ data, month, setMonth }: MonthProps) {
       </div>
       <section className="panel">
         <SectionHead title="בקרוב ביומן" href="/calendar" />
-        {upcoming.length ? (
-          upcoming.slice(0, 4).map((e) => <EventCard key={e.id} event={e} compact />)
+        {calendarMonthEvents.length ? (
+          calendarMonthEvents.map((e) => <EventCard key={e.id} event={e} compact />)
         ) : (
-          <Empty add />
+          <Empty title="אין אירועים החודש" text="כל האירועים בחודש הנוכחי יופיעו כאן." add />
         )}
       </section>
       <div className="stats-grid">
@@ -386,6 +385,9 @@ function Dashboard({ data, month, setMonth }: MonthProps) {
               <h2 className="next-client">{closest.client.name}</h2>
               <p>{closest.eventType.name}</p>
               <p className="muted">{eventLocation(closest) || 'המיקום עדיין לא נקבע'}</p>
+              {closest.preparationPlace && (
+                <p className="muted">מקום התארגנות: {closest.preparationPlace}</p>
+              )}
               <div className="next-price">
                 <span>מחיר האירוע</span>
                 <strong>{money(closest.price)}</strong>
@@ -432,16 +434,6 @@ function Dashboard({ data, month, setMonth }: MonthProps) {
           <ChevronLeft size={20} />
         </Link>
       )}
-      <div className="dashboard-grid lower">
-        <section className="panel">
-          <SectionHead title="עדכונים אחרונים" href="/events" />
-          {recent.length ? (
-            recent.map((e) => <EventCard key={e.id} event={e} compact />)
-          ) : (
-            <Empty title="מתחילים דף חדש" text="האירועים שתעדכני יופיעו כאן." />
-          )}
-        </section>
-      </div>
     </>
   );
 }

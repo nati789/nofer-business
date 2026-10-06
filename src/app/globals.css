@@ -964,6 +964,11 @@ textarea {
 .form-grid .full {
   grid-column: 1/-1;
 }
+@media (max-width: 700px) {
+  .form-grid.client-fields {
+    grid-template-columns: 1fr;
+  }
+}
 fieldset {
   border: 0;
   border-bottom: 1px solid var(--line);
@@ -1404,6 +1409,33 @@ legend {
   justify-content: space-between;
   margin-top: 18px;
   font-size: 13px;
+}
+.payment-editor {
+  margin-top: 18px;
+}
+.payment-editor > p {
+  margin-block: 8px 16px;
+}
+.payment-edit-row {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.payment-edit-row.removed {
+  background: var(--soft);
+}
+.payment-edit-row .section-head {
+  margin-bottom: 12px;
+  gap: 10px;
+}
+.payment-edit-row h3 {
+  font-size: 14px;
+}
+@media (max-width: 700px) {
+  .payment-edit-row .form-grid {
+    grid-template-columns: 1fr;
+  }
 }
 .payment-total span {
   color: var(--muted);

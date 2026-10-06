@@ -46,6 +46,7 @@ model Event {
   location     String     @default("")
   city         String     @default("")
   venue        String     @default("")
+  preparationPlace String?
   price        Int
   status       EventStatus @default(NEW)
   notes        String     @default("")

@@ -38,18 +38,24 @@ export default function EventDetails({
     setBusy(true);
     setError('');
     try {
-      await mutate('/api/events/' + event.id, 'PUT', {
-        ...event,
-        name: event.client.name,
-        phone: event.client.phone,
-        city: event.city,
-        venue: event.venue,
-        date: event.date.slice(0, 10),
-        initialPaid: 0,
-        requestId: crypto.randomUUID(),
-        status,
-        allowDuplicate: true,
-      });
+      if (status === 'COMPLETED') {
+        await mutate('/api/events/' + event.id + '/complete', 'POST', {
+          version: event.version,
+          requestId: crypto.randomUUID(),
+        });
+      } else
+        await mutate('/api/events/' + event.id, 'PUT', {
+          ...event,
+          name: event.client.name,
+          phone: event.client.phone,
+          city: event.city,
+          venue: event.venue,
+          date: event.date.slice(0, 10),
+          initialPaid: 0,
+          requestId: crypto.randomUUID(),
+          status,
+          allowDuplicate: true,
+        });
       await onSaved();
     } catch (e) {
       setError((e as Error).message);
@@ -116,6 +122,7 @@ export default function EventDetails({
           <DetailLine label="סוג">{event.eventType.name}</DetailLine>
           <DetailLine label="עיר">{event.city || '—'}</DetailLine>
           <DetailLine label="שם האולם">{event.venue || '—'}</DetailLine>
+          <DetailLine label="מקום התארגנות">{event.preparationPlace || '—'}</DetailLine>
           {event.location && <DetailLine label="מיקום מקורי">{event.location}</DetailLine>}
           <DetailLine label="מצב תשלום">
             <PaymentBadge event={event} />
@@ -164,7 +171,7 @@ export default function EventDetails({
         <p className="notes">{event.notes || 'אין הערות לאירוע הזה.'}</p>
       </section>
       <div className="detail-actions">
-        {event.status !== 'COMPLETED' && event.status !== 'CANCELLED' && (
+        {(event.status !== 'COMPLETED' || t.remaining > 0) && event.status !== 'CANCELLED' && (
           <button
             className="primary"
             disabled={busy}
@@ -213,6 +220,9 @@ export default function EventDetails({
           מחיקת האירוע
         </button>
       </div>
+      {event.status !== 'CANCELLED' && (event.status !== 'COMPLETED' || t.remaining > 0) && (
+        <p className="muted">סימון כהושלם רושם את היתרה כתשלום ומסמן את האירוע כשולם במלואו.</p>
+      )}
       <p className="muted footnote">
         נוצר ב־{dateLabel(event.createdAt)} · עודכן ב־{dateLabel(event.updatedAt)}
       </p>
