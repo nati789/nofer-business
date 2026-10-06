@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import { ThemeInit } from '@/components/theme';
 export const metadata: Metadata = {
   title: 'נופר | העסק שלי',
   description: 'לקוחות, אירועים ותשלומים — הכל במקום אחד',
@@ -16,7 +17,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="he" dir="rtl" data-scroll-behavior="smooth">
-      <body>{children}</body>
+      <body>
+        <ThemeInit />
+        {children}
+      </body>
     </html>
   );
 }

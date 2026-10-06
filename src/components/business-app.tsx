@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
+import Link from './app-link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import {
   dateLabel,
+  eventLocation,
   monthLabel,
   today,
   money,
@@ -119,7 +120,7 @@ export default function BusinessApp() {
     else if (path === '/summary' || path === '/reports')
       content = <Reports data={data} month={month} setMonth={setMonth} all={path === '/reports'} />;
     else if (path === '/more') content = <More />;
-    else if (path === '/settings') content = <Settings data={data} onSaved={refresh} />;
+    else if (path === '/settings') content = <Settings />;
     else if (path === '/export') content = <Export />;
     else if (path === '/') content = <Dashboard data={data} month={month} setMonth={setMonth} />;
     else content = <Empty title="העמוד לא נמצא" text="בחרי עמוד מתפריט הניווט." />;
@@ -301,9 +302,17 @@ function Dashboard({ data, month, setMonth }: MonthProps) {
         </Link>
       </Heading>
       <div className="month-row">
-        <h2>מה קורה בעסק החודש?</h2>
+        <h2>מה קורה בעסק שלך</h2>
         <MonthPicker month={month} onChange={setMonth} />
       </div>
+      <section className="panel">
+        <SectionHead title="בקרוב ביומן" href="/calendar" />
+        {upcoming.length ? (
+          upcoming.slice(0, 4).map((e) => <EventCard key={e.id} event={e} compact />)
+        ) : (
+          <Empty add />
+        )}
+      </section>
       <div className="stats-grid">
         <Stat
           label="הכנסה מהאירועים"
@@ -376,7 +385,7 @@ function Dashboard({ data, month, setMonth }: MonthProps) {
               </span>
               <h2 className="next-client">{closest.client.name}</h2>
               <p>{closest.eventType.name}</p>
-              <p className="muted">{closest.location || 'המיקום עדיין לא נקבע'}</p>
+              <p className="muted">{eventLocation(closest) || 'המיקום עדיין לא נקבע'}</p>
               <div className="next-price">
                 <span>מחיר האירוע</span>
                 <strong>{money(closest.price)}</strong>
@@ -424,14 +433,6 @@ function Dashboard({ data, month, setMonth }: MonthProps) {
         </Link>
       )}
       <div className="dashboard-grid lower">
-        <section className="panel">
-          <SectionHead title="בקרוב ביומן" href="/calendar" />
-          {upcoming.length ? (
-            upcoming.slice(0, 4).map((e) => <EventCard key={e.id} event={e} compact />)
-          ) : (
-            <Empty add />
-          )}
-        </section>
         <section className="panel">
           <SectionHead title="עדכונים אחרונים" href="/events" />
           {recent.length ? (
@@ -799,6 +800,7 @@ function Reports({ data, month, setMonth, all = false }: MonthProps & { all?: bo
       >
         <MonthPicker month={month} onChange={setMonth} />
       </Heading>
+
       <div className="stats-grid">
         <Stat accent label="הכנסה מאירועי החודש" value={money(s.revenue)} />
         <Stat label="כבר נגבה" value={money(s.paid)} />

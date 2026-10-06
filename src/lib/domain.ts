@@ -1,3 +1,20 @@
+export const eventTypeNames = ['חתונה', 'חינה', 'הפרשת חלה', 'ברית', 'צילומים'];
+export const eventLocation = (e: Pick<BusinessEvent, 'city' | 'venue' | 'location'>) =>
+  [e.city, e.venue || e.location].filter(Boolean).join(' · ');
+export const manualDate = (iso: string) =>
+  iso ? iso.slice(0, 10).split('-').reverse().join('/') : '';
+export function parseManualDate(value: string) {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value.trim());
+  if (!match) return '';
+  const iso = `${match[3]}-${match[2]}-${match[1]}`;
+  const date = new Date(iso + 'T00:00:00Z');
+  return !isNaN(date.getTime()) &&
+    date.toISOString().slice(0, 10) === iso &&
+    iso >= '2000-01-01' &&
+    iso <= '2100-12-31'
+    ? iso
+    : '';
+}
 export const statuses = {
   NEW: 'חדש',
   CONFIRMED: 'מאושר',
@@ -20,7 +37,7 @@ export type PaymentState = keyof typeof paymentLabels;
 export type Client = {
   id: string;
   name: string;
-  phone: string;
+  phone: string | null;
   notes: string;
   createdAt: string;
   updatedAt: string;
@@ -43,6 +60,8 @@ export type BusinessEvent = {
   date: string;
   time: string;
   location: string;
+  city: string;
+  venue: string;
   price: number;
   status: Status;
   notes: string;
@@ -113,13 +132,21 @@ export function filterEvents(events: BusinessEvent[], f: Filters, day = today())
   const digits = q?.replace(/\D/g, '');
   return events.filter((e) => {
     const d = e.date.slice(0, 10);
-    const haystack = [e.client.name, e.client.phone, e.eventType.name, e.location, e.notes]
+    const haystack = [
+      e.client.name,
+      e.client.phone,
+      e.eventType.name,
+      e.city,
+      e.venue,
+      e.location,
+      e.notes,
+    ]
       .join(' ')
       .toLocaleLowerCase();
     return (
       (!q ||
         haystack.includes(q) ||
-        (!!digits && digits.length >= 3 && e.client.phone.includes(normalizePhone(q)))) &&
+        (!!digits && digits.length >= 3 && e.client.phone?.includes(normalizePhone(q)))) &&
       (!f.month || d.startsWith(f.month)) &&
       (!f.from || d >= f.from) &&
       (!f.to || d <= f.to) &&

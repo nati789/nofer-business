@@ -22,11 +22,11 @@ test('events, client recognition, payments, summaries, exports and deletion', as
   await page.goto('/events/new');
   await page.getByLabel('טלפון', { exact: false }).fill(phone);
   await page.getByLabel('שם הלקוח').fill(name);
-  await page.getByLabel('תאריך האירוע').fill('2026-10-18');
-  await page.getByLabel('סוג אירוע').selectOption('birthday');
+  await page.getByLabel('תאריך האירוע').fill('18/10/2026');
+  await page.getByLabel('סוג אירוע').selectOption('wedding');
   await page.getByLabel('מחיר שסוכם').fill('2000');
   await page.getByLabel('כבר שולם').fill('500');
-  await page.getByLabel('מיקום', { exact: true }).fill('תל אביב');
+  await page.getByLabel('עיר', { exact: true }).fill('תל אביב');
   await page.getByRole('button', { name: 'שמירת האירוע', exact: true }).click();
   await expect(page).toHaveURL(/\/events\/c[a-z0-9]+$/);
   id = page.url().split('/').pop()!;
@@ -46,7 +46,7 @@ test('events, client recognition, payments, summaries, exports and deletion', as
     await page.getByRole('button', { name: 'שמירת שינויים' }).click();
     await expect(page.locator('.stat').filter({ hasText: 'יתרה לתשלום' })).toContainText('100');
     await page.getByRole('link', { name: 'העתקת אירוע' }).click();
-    await page.getByLabel('תאריך האירוע').fill('2026-11-18');
+    await page.getByLabel('תאריך האירוע').fill('18/11/2026');
     await page.getByRole('button', { name: 'שמירת האירוע', exact: true }).click();
     await expect(page).toHaveURL(/\/events\/c[a-z0-9]+$/);
     copyId = page.url().split('/').pop()!;
@@ -60,7 +60,7 @@ test('events, client recognition, payments, summaries, exports and deletion', as
     await page.getByLabel('חיפוש אירועים').fill(name);
     await page.getByRole('button', { name: 'סינון', exact: true }).click();
     await page.getByLabel('חודש', { exact: true }).fill('2026-10');
-    await page.getByRole('combobox', { name: 'סוג אירוע', exact: true }).selectOption('birthday');
+    await page.getByRole('combobox', { name: 'סוג אירוע', exact: true }).selectOption('wedding');
     await page
       .getByRole('combobox', { name: 'מצב תשלום', exact: true })
       .selectOption('OUTSTANDING');
@@ -101,7 +101,7 @@ test('API validates duplicate, overpayment, stale edit, idempotency and cancella
     name,
     phone,
     date: '2026-10-20',
-    eventTypeId: 'birthday',
+    eventTypeId: 'wedding',
     price: 200000,
     initialPaid: 50000,
     requestId: crypto.randomUUID(),
@@ -175,6 +175,7 @@ test('API validates duplicate, overpayment, stale edit, idempotency and cancella
   }
 });
 test('mobile layouts and routes have no overflow or browser errors', async ({ page }) => {
+  test.setTimeout(120000);
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   for (const width of [375, 390, 430, 1280]) {
@@ -194,6 +195,8 @@ test('mobile layouts and routes have no overflow or browser errors', async ({ pa
     ]) {
       await page.goto(path);
       await expect(page.locator('h1')).toBeVisible();
+      // Let route prefetches finish before the next full navigation in WebKit.
+      await page.waitForLoadState('networkidle');
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
         `${path} at ${width}`,
@@ -202,7 +205,80 @@ test('mobile layouts and routes have no overflow or browser errors', async ({ pa
     }
     await page.goto('/');
     await expect(page.locator('h1')).toBeVisible();
+    await page.waitForLoadState('networkidle');
     await page.screenshot({ path: `artifacts/dashboard-${width}.png`, fullPage: true });
   }
   expect(errors).toEqual([]);
+});
+
+test('optional phone, both date inputs, locations, dashboard and persistent themes', async ({
+  page,
+  request,
+}) => {
+  const name = 'בדיקת מערכת ללא טלפון ' + Date.now();
+  await page.goto('/events/new');
+  await page.getByLabel('שם הלקוח').fill(name);
+  await page.getByLabel('מחיר שסוכם').fill('1000');
+  await page.getByLabel('סוג אירוע').selectOption({ label: 'חינה' });
+  expect(
+    await page.locator('select[name="eventTypeId"] option:not([disabled])').allTextContents(),
+  ).toEqual(['חתונה', 'חינה', 'הפרשת חלה', 'ברית', 'צילומים']);
+  await page.getByLabel('עיר', { exact: true }).fill('חיפה');
+  await page.getByLabel('שם האולם', { exact: true }).fill('אולם הכרמל');
+  await page.getByLabel('תאריך האירוע').fill('');
+  await page.getByRole('button', { name: 'שמירת האירוע', exact: true }).click();
+  await expect(page).toHaveURL('/events/new');
+  expect(
+    await page
+      .getByLabel('תאריך האירוע')
+      .evaluate((input: HTMLInputElement) => input.validity.valueMissing),
+  ).toBe(true);
+  await page.getByLabel('תאריך האירוע').fill('31/02/2027');
+  await page.getByRole('button', { name: 'שמירת האירוע', exact: true }).click();
+  await expect(page.locator('.form-card [role="alert"]')).toContainText('תאריך תקין');
+  await page.getByLabel('בחירת תאריך ביומן').fill('2027-02-20');
+  await expect(page.getByLabel('תאריך האירוע')).toHaveValue('20/02/2027');
+  await page.getByLabel('תאריך האירוע').fill('');
+  await page.getByLabel('תאריך האירוע').pressSequentially('21022027');
+  await expect(page.getByLabel('תאריך האירוע')).toHaveValue('21/02/2027');
+  await expect(page.getByLabel('בחירת תאריך ביומן')).toHaveValue('2027-02-21');
+  await page.getByRole('button', { name: 'שמירת האירוע', exact: true }).click();
+  await expect(page).toHaveURL(/\/events\/c[a-z0-9]+$/);
+  const id = page.url().split('/').pop()!;
+  const snapshot = (await (await request.get('/api/data')).json()) as Snapshot;
+  const event = snapshot.events.find((e) => e.id === id)!;
+  expect(event.client.phone).toBeNull();
+  expect(event.city).toBe('חיפה');
+  expect(event.venue).toBe('אולם הכרמל');
+  expect(
+    (
+      await request.post('/api/events', {
+        data: { name, eventTypeId: event.eventTypeId, price: 0, requestId: crypto.randomUUID() },
+      })
+    ).status(),
+  ).toBe(400);
+  await page.getByRole('link', { name: 'עריכת האירוע' }).click();
+  await page.getByLabel('שם האולם', { exact: true }).fill('אולם מעודכן');
+  await page.getByRole('button', { name: 'שמירת שינויים' }).click();
+  await expect(page).toHaveURL('/events/' + id);
+  await expect(page.locator('.detail-grid')).toContainText('אולם מעודכן');
+  await page.goto('/');
+  const upcoming = page
+    .locator('section')
+    .filter({ has: page.getByRole('heading', { name: 'בקרוב ביומן' }) });
+  await expect(upcoming).toContainText('חיפה');
+  await expect(upcoming).toContainText('אולם מעודכן');
+  expect(
+    await page.evaluate(() =>
+      getComputedStyle(document.documentElement).getPropertyValue('--soft').trim(),
+    ),
+  ).toBe('#f9e7ef');
+  await page.goto('/settings');
+  await page.getByRole('button', { name: 'סגול', exact: true }).click();
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'סגול', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await page.getByRole('button', { name: 'ורוד בהיר', exact: true }).click();
 });

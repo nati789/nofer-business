@@ -23,7 +23,7 @@ enum PaymentMethod {
 model Client {
   id        String   @id @default(cuid())
   name      String
-  phone     String   @unique
+  phone     String?  @unique
   notes     String   @default("")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -44,6 +44,8 @@ model Event {
   date         DateTime    @db.Date
   time         String     @default("")
   location     String     @default("")
+  city         String     @default("")
+  venue        String     @default("")
   price        Int
   status       EventStatus @default(NEW)
   notes        String     @default("")

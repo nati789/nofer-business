@@ -1,12 +1,12 @@
 :root {
-  --bg: #f5f7f4;
+  --bg: #fcf7f9;
   --paper: #fff;
-  --ink: #253e34;
-  --muted: #7c8982;
-  --green: #28735c;
-  --green-dark: #215b49;
-  --soft: #eaf2ed;
-  --line: #e7ece7;
+  --ink: #382d34;
+  --muted: #70656c;
+  --green: #a3426b;
+  --green-dark: #873456;
+  --soft: #f9e7ef;
+  --line: #eee2e8;
   --amber: #a26d31;
   --red: #b9534d;
   --radius: 18px;
@@ -202,7 +202,7 @@ small {
 .sidebar-label {
   padding: 8px 14px 12px;
   font-size: 11px;
-  color: #9aa59e;
+  color: var(--green);
 }
 .sidebar nav {
   display: grid;
@@ -215,18 +215,18 @@ small {
   gap: 12px;
   min-height: 47px;
   padding: 11px 14px;
-  color: #758079;
+  color: var(--green);
   border-radius: 10px;
   font-size: 13px;
 }
 .sidebar nav a.active {
-  background: #eaf2ec;
+  background: var(--soft);
   color: var(--green);
   font-weight: 700;
 }
 .sidebar nav a:hover,
 .sidebar-bottom > a:hover {
-  background: #f2f6f2;
+  background: var(--soft);
 }
 .nav-dot {
   height: 6px;
@@ -252,8 +252,8 @@ small {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #eee9df;
-  color: #8c7960;
+  background: var(--soft);
+  color: var(--green);
   border-radius: 50%;
   width: 37px;
   height: 37px;
@@ -336,7 +336,7 @@ main {
   margin-bottom: 10px;
 }
 .live-dot {
-  color: #8a968d;
+  color: var(--green);
   font-size: 11px;
   display: flex;
   align-items: center;
@@ -346,7 +346,7 @@ main {
   content: '';
   height: 5px;
   width: 5px;
-  background: #75a58c;
+  background: var(--green);
   border-radius: 50%;
 }
 .page-title {
@@ -430,7 +430,7 @@ main {
   min-width: 0;
 }
 .stat.accent {
-  background: var(--green);
+  background: var(--soft);
   color: white;
   border-color: var(--green);
 }
@@ -439,15 +439,15 @@ main {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  color: #7f8b83;
+  color: var(--green);
   font-size: 12px;
 }
 .stat-label svg {
-  color: #9aaa9e;
+  color: var(--green);
 }
 .stat.accent .stat-label,
 .stat.accent .stat-label svg {
-  color: #d7e7dc;
+  color: var(--soft);
 }
 .stat > strong {
   font-size: 30px;
@@ -463,7 +463,7 @@ main {
   display: block;
 }
 .stat.accent small {
-  color: #c7e0d0;
+  color: var(--soft);
 }
 .panel {
   background: white;
@@ -524,7 +524,7 @@ main {
 .chart-value {
   white-space: nowrap;
   font-size: 10px;
-  color: #738979;
+  color: var(--green);
 }
 .bar-track {
   height: 100%;
@@ -536,7 +536,7 @@ main {
     to top,
     transparent 0,
     transparent calc(33% - 1px),
-    #f4f6f3 33%
+    var(--soft) 33%
   );
 }
 .bar {
@@ -544,18 +544,18 @@ main {
   max-width: 46px;
   min-height: 2px;
   margin: 0 auto;
-  background: #d6e5db;
+  background: var(--soft);
   border-radius: 6px 6px 0 0;
   position: relative;
   overflow: hidden;
 }
 .bar.current {
-  background: #75a38c;
+  background: color-mix(in srgb, var(--green) 40%, var(--soft));
 }
 .bar-collected {
   position: absolute;
   bottom: 0;
-  background: #558b70;
+  background: var(--green);
   width: 100%;
   border-radius: 5px 5px 0 0;
 }
@@ -577,14 +577,14 @@ main {
   width: 8px;
   height: 8px;
   border-radius: 2px;
-  background: #d6e5db;
+  background: var(--soft);
 }
 .chart-legend i.collected {
-  background: #558b70;
+  background: var(--green);
 }
 .next-panel {
-  background: #f0f4ed;
-  border-color: #e4ebdf;
+  background: var(--soft);
+  border-color: var(--soft);
   display: flex;
   flex-direction: column;
 }
@@ -592,14 +592,14 @@ main {
   margin-bottom: 20px;
 }
 .next-panel > .section-head svg {
-  color: #729077;
+  color: var(--green);
 }
 .pill {
   align-self: flex-start;
   font-size: 11px;
   background: white;
-  color: #5a7e63;
-  border: 1px solid #e0e8dd;
+  color: var(--green);
+  border: 1px solid var(--soft);
   border-radius: 7px;
   padding: 6px 10px;
   margin-bottom: 16px;
@@ -617,7 +617,7 @@ main {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-top: 1px solid #dfe6db;
+  border-top: 1px solid var(--soft);
   padding: 13px 0;
   margin-top: auto;
 }
@@ -631,7 +631,7 @@ main {
 .next-panel > .secondary {
   width: 100%;
   background: transparent;
-  border-color: #d4e0d3;
+  border-color: var(--soft);
   justify-content: space-between;
   font-size: 12px;
   min-height: 39px;
@@ -657,7 +657,7 @@ main {
   font-size: 13px;
 }
 .mini-stats svg {
-  color: #8da393;
+  color: var(--green);
 }
 .alert-strip {
   display: flex;
@@ -855,7 +855,7 @@ main {
   height: 62px;
   border-radius: 50%;
   background: var(--soft);
-  color: #749981;
+  color: var(--green);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -870,7 +870,7 @@ main {
   margin-top: 8px;
 }
 .empty > svg {
-  color: #9db3a3;
+  color: var(--green);
 }
 .loading {
   display: flex;
@@ -1000,7 +1000,7 @@ legend {
   display: flex;
   align-items: center;
   gap: 7px;
-  background: #edf5ee;
+  background: var(--soft);
   padding: 10px 12px;
   border-radius: 8px;
   color: var(--green);
@@ -1243,10 +1243,10 @@ legend {
   display: flex;
   align-items: center;
   gap: 15px;
-  background: #eef3ed;
+  background: var(--soft);
 }
 .comparison > svg {
-  color: #7d9e81;
+  color: var(--green);
 }
 .comparison h2 {
   font-size: 14px;
@@ -1294,7 +1294,7 @@ legend {
 }
 .count-chart > div > div {
   flex: 1;
-  background: #f2f5f0;
+  background: var(--soft);
   height: 11px;
   border-radius: 4px;
   overflow: hidden;
@@ -1302,7 +1302,7 @@ legend {
 .count-chart i {
   display: block;
   height: 100%;
-  background: #90b59b;
+  background: var(--green);
   border-radius: 4px;
 }
 .count-chart strong {
@@ -1322,11 +1322,11 @@ legend {
   min-height: 88px;
 }
 .more-link > svg:first-child {
-  color: #79a089;
+  color: var(--green);
 }
 .more-link > svg:last-child {
   margin-inline-start: auto;
-  color: #a6b0a7;
+  color: var(--green);
 }
 .more-link strong {
   font-size: 14px;
@@ -1381,7 +1381,7 @@ legend {
 .payment-icon {
   display: flex;
   background: var(--soft);
-  color: #749d7b;
+  color: var(--green);
   border-radius: 9px;
   padding: 10px;
 }
@@ -1469,8 +1469,8 @@ legend {
   width: 42px;
   height: 42px;
   border-radius: 50%;
-  background: #eff3e8;
-  color: #81966a;
+  background: var(--soft);
+  color: var(--green);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2233,4 +2233,50 @@ legend {
     animation: none !important;
     transition: none !important;
   }
+}
+
+:root[data-theme='purple'] {
+  --green: #7750a3;
+  --green-dark: #624187;
+  --soft: #eee7f7;
+}
+:root[data-theme='blue'] {
+  --green: #356d9e;
+  --green-dark: #28567e;
+  --soft: #e6eff8;
+}
+:root[data-theme='green'] {
+  --green: #28735c;
+  --green-dark: #215b49;
+  --soft: #eaf2ed;
+}
+:root[data-theme='peach'] {
+  --green: #9b5031;
+  --green-dark: #7c3e25;
+  --soft: #fbece2;
+}
+.theme-options {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-block: 18px;
+}
+.stat.accent {
+  color: var(--ink);
+  border-color: var(--line);
+}
+.stat.accent .stat-label,
+.stat.accent .stat-label svg,
+.stat.accent small {
+  color: var(--green);
+}
+.event-main small {
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--green);
+  outline-color: var(--green);
 }

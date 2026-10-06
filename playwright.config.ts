@@ -7,9 +7,23 @@ export default defineConfig({
   expect: { timeout: 10000 },
   use: {
     baseURL: 'http://127.0.0.1:3001',
-    extraHTTPHeaders: process.env.TEST_SESSION_COOKIE
-      ? { Cookie: process.env.TEST_SESSION_COOKIE }
-      : {},
+    storageState: process.env.TEST_SESSION_COOKIE
+      ? {
+          cookies: [
+            {
+              name: 'nofer-session',
+              value: process.env.TEST_SESSION_COOKIE.slice('nofer-session='.length),
+              domain: '127.0.0.1',
+              path: '/',
+              expires: -1,
+              httpOnly: true,
+              secure: false,
+              sameSite: 'Lax',
+            },
+          ],
+          origins: [],
+        }
+      : undefined,
     trace: 'off',
     screenshot: 'only-on-failure',
   },

@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
+import Link from './app-link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowRight, Plus, Pencil, Copy, Trash2, CheckCheck, X, Wallet } from 'lucide-react';
 import {
@@ -8,6 +8,7 @@ import {
   totals,
   today,
   dateLabel,
+  eventLocation,
   statuses,
   methods,
   type BusinessEvent,
@@ -41,6 +42,8 @@ export default function EventDetails({
         ...event,
         name: event.client.name,
         phone: event.client.phone,
+        city: event.city,
+        venue: event.venue,
         date: event.date.slice(0, 10),
         initialPaid: 0,
         requestId: crypto.randomUUID(),
@@ -68,7 +71,7 @@ export default function EventDetails({
           <h1>{event.client.name}</h1>
           <p>
             {event.time || 'טרם נקבעה שעה'}
-            {event.location && ' · ' + event.location}
+            {eventLocation(event) && ' · ' + eventLocation(event)}
           </p>
         </div>
         <Link className="secondary" href={'/events/' + event.id + '/edit'}>
@@ -111,7 +114,9 @@ export default function EventDetails({
           <DetailLine label="תאריך">{dateLabel(event.date)}</DetailLine>
           <DetailLine label="שעה">{event.time || '—'}</DetailLine>
           <DetailLine label="סוג">{event.eventType.name}</DetailLine>
-          <DetailLine label="מיקום">{event.location || '—'}</DetailLine>
+          <DetailLine label="עיר">{event.city || '—'}</DetailLine>
+          <DetailLine label="שם האולם">{event.venue || '—'}</DetailLine>
+          {event.location && <DetailLine label="מיקום מקורי">{event.location}</DetailLine>}
           <DetailLine label="מצב תשלום">
             <PaymentBadge event={event} />
           </DetailLine>

@@ -1,10 +1,13 @@
 'use client';
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import Link from './app-link';
 import { ArrowRight, Check, UserRound, CalendarDays, Wallet } from 'lucide-react';
 import {
   normalizePhone,
+  eventTypeNames,
+  manualDate,
+  parseManualDate,
   today,
   methods,
   statuses,
@@ -38,7 +41,10 @@ export default function EventForm({
   const [phone, setPhone] = useState(event?.client.phone || '');
   const [name, setName] = useState(event?.client.name || '');
   const requestId = useRef('');
-  const existing = data.clients.find((c) => c.phone === normalizePhone(phone));
+  const dateInput = useRef<HTMLInputElement>(null);
+  const [dateText, setDateText] = useState(manualDate(!copy && event ? event.date : today()));
+  const date = parseManualDate(dateText);
+  const existing = data.clients.find((c) => !!phone.trim() && c.phone === normalizePhone(phone));
   const edit = !!event && !copy;
   return (
     <>
@@ -58,6 +64,10 @@ export default function EventForm({
         onSubmit={async (e) => {
           e.preventDefault();
           if (busy) return;
+          if (!date) {
+            setError('יש להזין תאריך תקין בפורמט DD/MM/YYYY');
+            return;
+          }
           setBusy(true);
           setError('');
           const f = new FormData(e.currentTarget);
@@ -69,10 +79,12 @@ export default function EventForm({
               {
                 name,
                 phone,
-                date: f.get('date'),
+                date,
                 time: f.get('time'),
                 eventTypeId: f.get('eventTypeId'),
-                location: f.get('location'),
+                city: f.get('city'),
+                venue: f.get('venue'),
+                ...(copy && event ? { location: event.location } : {}),
                 price: Math.round(Number(f.get('price')) * 100),
                 initialPaid: edit ? 0 : Math.round(Number(f.get('initialPaid') || 0) * 100),
                 initialMethod: f.get('initialMethod') || 'TRANSFER',
@@ -99,7 +111,7 @@ export default function EventForm({
           </legend>
           <div className="form-grid">
             <label>
-              טלפון <span className="required">*</span>
+              טלפון (לא חובה)
               <input
                 name="phone"
                 type="tel"
@@ -109,21 +121,23 @@ export default function EventForm({
                 onChange={(e) => {
                   setPhone(e.target.value);
                   const match = data.clients.find(
-                    (c) => c.phone === normalizePhone(e.target.value),
+                    (c) => !!e.target.value.trim() && c.phone === normalizePhone(e.target.value),
                   );
                   if (match) setName(match.name);
                 }}
-                required
                 placeholder="050-0000000"
                 dir="ltr"
                 list="recent-clients"
               />
               <datalist id="recent-clients">
-                {data.clients.slice(0, 12).map((c) => (
-                  <option key={c.id} value={c.phone}>
-                    {c.name}
-                  </option>
-                ))}
+                {data.clients
+                  .filter((c) => c.phone)
+                  .slice(0, 12)
+                  .map((c) => (
+                    <option key={c.id} value={c.phone || ''}>
+                      {c.name}
+                    </option>
+                  ))}
               </datalist>
             </label>
             <label>
@@ -156,12 +170,42 @@ export default function EventForm({
             <label>
               תאריך האירוע <span className="required">*</span>
               <input
+                ref={dateInput}
+                name="dateText"
+                type="text"
+                inputMode="numeric"
+                dir="ltr"
+                placeholder="DD/MM/YYYY"
+                value={dateText}
+                required
+                aria-describedby="event-date-help"
+                onInvalid={(e) =>
+                  e.currentTarget.setCustomValidity('יש להזין תאריך תקין בפורמט DD/MM/YYYY')
+                }
+                onChange={(e) => {
+                  e.target.setCustomValidity('');
+                  // iPhone's numeric keyboard has no slash key.
+                  setDateText(
+                    e.target.value
+                      .replace(/\D/g, '')
+                      .slice(0, 8)
+                      .replace(/^(\d{2})(?=\d)/, '$1/')
+                      .replace(/^(\d{2}\/\d{2})(?=\d)/, '$1/'),
+                  );
+                }}
+              />
+              <small id="event-date-help">הקלדה בפורמט DD/MM/YYYY או בחירה ביומן</small>
+              <input
                 name="date"
+                aria-label="בחירת תאריך ביומן"
                 type="date"
-                defaultValue={!copy && event ? event.date.slice(0, 10) : today()}
+                value={date}
                 min="2000-01-01"
                 max="2100-12-31"
-                required
+                onChange={(e) => {
+                  dateInput.current?.setCustomValidity('');
+                  setDateText(manualDate(e.target.value));
+                }}
               />
             </label>
             <label>
@@ -170,12 +214,19 @@ export default function EventForm({
             </label>
             <label>
               סוג אירוע <span className="required">*</span>
-              <select name="eventTypeId" defaultValue={event?.eventTypeId || ''} required>
+              <select
+                name="eventTypeId"
+                defaultValue={
+                  event && eventTypeNames.includes(event.eventType.name) ? event.eventTypeId : ''
+                }
+                required
+              >
                 <option value="" disabled>
                   בחירת סוג אירוע
                 </option>
                 {data.types
-                  .filter((t) => t.active || t.id === event?.eventTypeId)
+                  .filter((t) => eventTypeNames.includes(t.name))
+                  .sort((a, b) => eventTypeNames.indexOf(a.name) - eventTypeNames.indexOf(b.name))
                   .map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.name}
@@ -193,12 +244,15 @@ export default function EventForm({
                 ))}
               </select>
             </label>
-            <label className="full">
-              מיקום
+            <label>
+              עיר
+              <input name="city" defaultValue={event?.city || ''} maxLength={300} />
+            </label>
+            <label>
+              שם האולם
               <input
-                name="location"
-                defaultValue={event?.location || ''}
-                placeholder="כתובת או שם המקום"
+                name="venue"
+                defaultValue={event?.venue || event?.location || ''}
                 maxLength={300}
               />
             </label>

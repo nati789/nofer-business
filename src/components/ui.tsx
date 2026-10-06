@@ -1,5 +1,5 @@
 'use client';
-import Link from 'next/link';
+import Link from './app-link';
 import {
   ChevronRight,
   ChevronLeft,
@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import {
   dateLabel,
+  eventLocation,
   monthLabel,
   shiftMonth,
   money,
@@ -112,7 +113,7 @@ export function EventCard({ event, compact = false }: { event: BusinessEvent; co
           <span className={'badge ' + event.status.toLowerCase()}>{statuses[event.status]}</span>
         </div>
         <p>
-          {event.eventType.name}
+          {event.eventType.name} · {dateLabel(event.date)}
           {event.time && (
             <>
               {' '}
@@ -120,12 +121,12 @@ export function EventCard({ event, compact = false }: { event: BusinessEvent; co
             </>
           )}
         </p>
-        {!compact && (
+        {
           <small>
             <MapPin size={13} />
-            {event.location || 'לא צוין מיקום'}
+            {eventLocation(event) || 'לא צוין מיקום'}
           </small>
-        )}
+        }
       </div>
       <div className="event-money">
         <strong>{money(event.price)}</strong>
@@ -141,7 +142,8 @@ export function EventCard({ event, compact = false }: { event: BusinessEvent; co
     </Link>
   );
 }
-export function Contact({ phone }: { phone: string }) {
+export function Contact({ phone }: { phone: string | null }) {
+  if (!phone) return null;
   return (
     <div className="contact">
       <a className="secondary" href={'tel:' + phone}>

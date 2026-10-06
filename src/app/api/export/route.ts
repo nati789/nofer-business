@@ -54,7 +54,7 @@ export async function GET(request: Request) {
           const events = all.filter((e) => e.clientId === c.id && e.status !== 'CANCELLED');
           return [
             c.name,
-            c.phone,
+            c.phone || '',
             s.count,
             s.revenue / 100,
             s.paid / 100,
@@ -88,7 +88,7 @@ export async function GET(request: Request) {
           e.payments.map((x) => [
             x.id,
             e.client.name,
-            e.client.phone,
+            e.client.phone || '',
             e.date.slice(0, 10),
             x.date.slice(0, 10),
             x.amount / 100,
@@ -107,7 +107,9 @@ export async function GET(request: Request) {
           'תאריך',
           'שעה',
           'סוג אירוע',
-          'מיקום',
+          'עיר',
+          'שם האולם',
+          'מיקום מקורי',
           'מחיר',
           'שולם',
           'יתרה',
@@ -126,10 +128,12 @@ export async function GET(request: Request) {
             return [
               e.id,
               e.client.name,
-              e.client.phone,
+              e.client.phone || '',
               e.date.slice(0, 10),
               e.time,
               e.eventType.name,
+              e.city,
+              e.venue,
               e.location,
               e.price / 100,
               t.paid / 100,

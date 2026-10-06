@@ -1,7 +1,8 @@
 'use client';
+import { ThemeSettings } from './theme';
 import { useState } from 'react';
-import Link from 'next/link';
-import { ArrowRight, Search, UsersRound, Plus, ChevronLeft, Download, Check } from 'lucide-react';
+import Link from './app-link';
+import { ArrowRight, Search, UsersRound, ChevronLeft, Download, Check } from 'lucide-react';
 import { today, money, summarize, dateLabel, type Snapshot } from '@/lib/domain';
 import { Stat, Empty, EventCard, Contact, DetailLine } from './ui';
 import { mutate } from './event-form';
@@ -168,8 +169,7 @@ export function ClientDetails({
                 type="tel"
                 inputMode="tel"
                 dir="ltr"
-                defaultValue={client.phone}
-                required
+                defaultValue={client.phone || ''}
               />
             </label>
           </div>
@@ -213,10 +213,7 @@ export function ClientDetails({
     </>
   );
 }
-export function Settings({ data, onSaved }: { data: Snapshot; onSaved: () => Promise<void> }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+export function Settings() {
   return (
     <>
       <div className="page-title">
@@ -225,96 +222,12 @@ export function Settings({ data, onSaved }: { data: Snapshot; onSaved: () => Pro
           <p>התאמות קטנות שעושות את המערכת שלך.</p>
         </div>
       </div>
+      <ThemeSettings />
       <section className="panel">
         <h2>סוגי אירועים</h2>
         <p className="muted">
-          אפשר להוסיף סוגים, לשנות שמות ולהסתיר סוגים שלא בשימוש. ההיסטוריה תמיד נשמרת.
+          חתונה · חינה · הפרשת חלה · ברית · צילומים. סוגים קודמים נשמרים בהיסטוריה.
         </p>
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
-        {success && (
-          <p className="inline-success" role="status">
-            {success}
-          </p>
-        )}
-        <div className="type-list">
-          {data.types.map((t) => (
-            <form
-              key={t.id}
-              className="type-row"
-              onSubmit={async (e) => {
-                e.preventDefault();
-                setBusy(true);
-                setError('');
-                setSuccess('');
-                const f = new FormData(e.currentTarget);
-                try {
-                  await mutate('/api/types', 'PATCH', {
-                    id: t.id,
-                    name: f.get('name'),
-                    active: f.get('active') === 'on',
-                  });
-                  await onSaved();
-                  setSuccess('סוג האירוע עודכן');
-                } catch (err) {
-                  setError((err as Error).message);
-                } finally {
-                  setBusy(false);
-                }
-              }}
-            >
-              <input
-                aria-label={'שם סוג האירוע ' + t.name}
-                name="name"
-                defaultValue={t.name}
-                required
-                maxLength={80}
-              />
-              <label className="checkbox">
-                <input type="checkbox" name="active" defaultChecked={t.active} />
-                פעיל
-              </label>
-              <button className="secondary" disabled={busy}>
-                שמירה
-              </button>
-            </form>
-          ))}
-        </div>
-        <form
-          className="type-row"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            setBusy(true);
-            setError('');
-            setSuccess('');
-            const form = e.currentTarget;
-            try {
-              await mutate('/api/types', 'POST', { name: new FormData(form).get('name') });
-              await onSaved();
-              form.reset();
-              setSuccess('סוג האירוע נוסף');
-            } catch (err) {
-              setError((err as Error).message);
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          <input
-            name="name"
-            aria-label="סוג אירוע חדש"
-            placeholder="שם לסוג אירוע חדש"
-            required
-            maxLength={80}
-          />
-          <button className="primary" disabled={busy}>
-            <Plus size={17} />
-            הוספה
-          </button>
-        </form>
       </section>
       <section className="panel">
         <h2>איך נספרים המספרים?</h2>
@@ -323,8 +236,8 @@ export function Settings({ data, onSaved }: { data: Snapshot; onSaved: () => Pro
           בהיסטוריה ואינם נכללים בסיכומי ההכנסה והגבייה.
         </p>
         <p className="muted">
-          לקוח מזוהה לפי מספר הטלפון. שינוי שם של לקוח או סוג אירוע מעדכן גם את התצוגה באירועים
-          קודמים.
+          כשמזינים טלפון, הלקוח מזוהה לפי המספר. בלי טלפון נוצר תיק לקוח חדש. שינוי פרטי לקוח מעדכן
+          גם את התצוגה באירועים קודמים.
         </p>
       </section>
     </>

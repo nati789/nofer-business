@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { normalizePhone } from './domain';
 const text = (max = 500) => z.string().trim().max(max, 'הטקסט ארוך מדי');
 export const dateSchema = z
-  .string()
+  .string({ error: 'יש להזין תאריך תקין' })
   .regex(/^\d{4}-\d{2}-\d{2}$/, 'תאריך לא תקין')
   .refine((s) => {
     const d = new Date(s + 'T00:00:00Z');
@@ -16,6 +16,12 @@ export const dateSchema = z
 export const phoneSchema = text(30)
   .transform(normalizePhone)
   .pipe(z.string().regex(/^0\d{8,9}$/, 'יש להזין מספר טלפון ישראלי תקין'));
+export const optionalPhoneSchema = z
+  .preprocess(
+    (v) => (v == null || (typeof v === 'string' && !v.trim()) ? null : v),
+    phoneSchema.nullable(),
+  )
+  .default(null);
 export const amountSchema = z
   .number()
   .int('יש להזין סכום מדויק באגורות')
@@ -24,13 +30,15 @@ export const amountSchema = z
 export const eventSchema = z
   .object({
     name: text(100).min(1, 'יש להזין שם לקוח'),
-    phone: phoneSchema,
+    phone: optionalPhoneSchema,
     date: dateSchema,
     time: text(5)
       .refine((s) => !s || /^([01]\d|2[0-3]):[0-5]\d$/.test(s), 'שעה לא תקינה')
       .default(''),
     eventTypeId: text(100).min(1, 'יש לבחור סוג אירוע'),
-    location: text(300).default(''),
+    location: text(300).optional(),
+    city: text(300).default(''),
+    venue: text(300).optional(),
     price: amountSchema,
     initialPaid: amountSchema.default(0),
     initialMethod: z
@@ -55,6 +63,6 @@ export const paymentSchema = z.object({
 });
 export const clientSchema = z.object({
   name: text(100).min(1, 'יש להזין שם'),
-  phone: phoneSchema,
+  phone: optionalPhoneSchema,
   notes: text(5000),
 });

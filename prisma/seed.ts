@@ -1,15 +1,12 @@
 import 'dotenv/config';
 import { db } from '../src/lib/db';
 try {
-  for (const [id, name] of [
-    ['birthday', 'יום הולדת'],
-    ['wedding', 'חתונה'],
-    ['private', 'אירוע פרטי'],
-    ['business', 'אירוע עסקי'],
-    ['photo', 'צילומים'],
-    ['other', 'אחר'],
-  ])
-    await db.eventType.upsert({ where: { id }, update: {}, create: { id, name } });
+  const names = ['חתונה', 'חינה', 'הפרשת חלה', 'ברית', 'צילומים'];
+  await db.$transaction(async (tx) => {
+    await tx.eventType.updateMany({ where: { name: { notIn: names } }, data: { active: false } });
+    for (const name of names)
+      await tx.eventType.upsert({ where: { name }, update: { active: true }, create: { name } });
+  });
   console.log('Default event types are ready. No sample clients or events were added.');
 } finally {
   await db.$disconnect();

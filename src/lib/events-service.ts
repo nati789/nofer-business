@@ -21,11 +21,18 @@ export async function saveEvent(body: unknown, id?: string) {
       const type = await tx.eventType.findUnique({ where: { id: v.eventTypeId } });
       if (!type || (!type.active && old?.eventTypeId !== type.id))
         throw new AppError('סוג האירוע אינו זמין');
-      const client = await tx.client.upsert({
-        where: { phone: v.phone },
-        create: { name: v.name, phone: v.phone },
-        update: {},
-      });
+      const client = v.phone
+        ? await tx.client.upsert({
+            where: { phone: v.phone },
+            create: { name: v.name, phone: v.phone },
+            update: {},
+          })
+        : old
+          ? await tx.client.update({
+              where: { id: old.clientId },
+              data: { name: v.name, phone: null },
+            })
+          : await tx.client.create({ data: { name: v.name, phone: null } });
       const date = new Date(v.date + 'T00:00:00Z');
       if (
         !v.allowDuplicate &&
@@ -48,7 +55,9 @@ export async function saveEvent(body: unknown, id?: string) {
         eventTypeId: v.eventTypeId,
         date,
         time: v.time,
-        location: v.location,
+        location: v.location ?? old?.location ?? '',
+        city: v.city,
+        venue: v.venue ?? v.location ?? old?.venue ?? '',
         price: v.price,
         status: v.status,
         notes: v.notes,
